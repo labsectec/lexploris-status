@@ -1,0 +1,58 @@
+name: Erreichbarkeit
+
+# Prüft lexploris.com von außen alle 30 Minuten (Betriebsbereitschaft B2/B6). Schlägt fehl, wenn die Seite
+# nicht antwortet, die Datenbank fehlt oder der Worker seit mehr als 10 Minuten keinen Herzschlag meldet;
+# GitHub schickt dann eine E-Mail. Öffentliches Repository, damit die Prüfung keine Actions-Minuten des
+# privaten Lexploris-Repositorys verbraucht. Runbooks: labsectec/neuralis-lexploris, docs/betrieb/runbooks/.
+# Testalarm: Actions → Erreichbarkeit → Run workflow → testalarm = true.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      testalarm:
+        description: "Absichtlich fehlschlagen (prüft, ob die Alarm-E-Mail ankommt)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: erreichbarkeit
+  cancel-in-progress: false
+
+jobs:
+  pruefen:
+    name: lexploris.com erreichbar
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Health-Check (3 Versuche)
+        env:
+          TESTALARM: ${{ inputs.testalarm && 'true' || 'false' }}
+        run: |
+          if [ "$TESTALARM" = "true" ]; then
+            echo "::error::Testalarm: absichtlich fehlgeschlagen. Kommt die E-Mail von GitHub an, funktioniert der Alarmweg."
+            exit 1
+          fi
+          for _ in 1 2 3; do
+            body=$(curl -fsS --max-time 15 https://lexploris.com/api/health) && break
+            body=""
+            sleep 20
+          done
+          if [ -z "$body" ]; then
+            echo "::error::lexploris.com antwortet nicht (3 Versuche). Runbook: app-down.md"
+            exit 1
+          fi
+          echo "$body"
+          if [ "$(printf '%s' "$body" | jq -r '.ok')" != "true" ]; then
+            echo "::error::Datenbank nicht erreichbar. Runbook: app-down.md"
+            exit 1
+          fi
+          age=$(printf '%s' "$body" | jq -r '.worker.ageSeconds // 99999')
+          if [ "$age" -gt 600 ]; then
+            echo "::error::Worker ohne Herzschlag seit ${age} s. Runbook: worker.md"
+            exit 1
+          fi
+          echo "ok: Datenbank erreichbar, Worker-Herzschlag vor ${age} s"

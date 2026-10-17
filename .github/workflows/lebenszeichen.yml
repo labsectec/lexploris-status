@@ -1,0 +1,26 @@
+name: Lebenszeichen
+
+# GitHub schaltet geplante Workflows in öffentlichen Repositories nach 60 Tagen ohne Aktivität ab.
+# Einmal pro Woche schreibt dieser Workflow deshalb das Datum in LEBENSZEICHEN.md.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  schreiben:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Datum eintragen
+        run: |
+          printf 'Letztes Lebenszeichen: %s UTC\n' "$(date -u '+%Y-%m-%d %H:%M')" > LEBENSZEICHEN.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add LEBENSZEICHEN.md
+          git commit -qm "Lebenszeichen $(date -u +%F)" || exit 0
+          git push -q
