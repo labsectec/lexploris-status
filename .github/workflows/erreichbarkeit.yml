@@ -1,9 +1,9 @@
 name: Erreichbarkeit
 
-# Prüft lexploris.com von außen alle 30 Minuten (Betriebsbereitschaft B2/B6). Schlägt fehl, wenn die Seite
+# Prüft www.neuralex.at von außen alle 30 Minuten (Betriebsbereitschaft B2/B6). Schlägt fehl, wenn die Seite
 # nicht antwortet, die Datenbank fehlt oder der Worker seit mehr als 10 Minuten keinen Herzschlag meldet;
 # GitHub schickt dann eine E-Mail. Öffentliches Repository, damit die Prüfung keine Actions-Minuten des
-# privaten Lexploris-Repositorys verbraucht. Runbooks: labsectec/neuralis-lexploris, docs/betrieb/runbooks/.
+# privaten Neuralex-Repositorys verbraucht. Runbooks: labsectec/neuralex, docs/betrieb/runbooks/.
 # Testalarm: Actions → Erreichbarkeit → Run workflow → testalarm = true.
 on:
   schedule:
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   pruefen:
-    name: lexploris.com erreichbar
+    name: www.neuralex.at erreichbar
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -37,12 +37,12 @@ jobs:
             exit 1
           fi
           for _ in 1 2 3; do
-            body=$(curl -fsS --max-time 15 https://lexploris.com/api/health) && break
+            body=$(curl -fsS --max-time 15 https://www.neuralex.at/api/health) && break
             body=""
             sleep 20
           done
           if [ -z "$body" ]; then
-            echo "::error::lexploris.com antwortet nicht (3 Versuche). Runbook: app-down.md"
+            echo "::error::www.neuralex.at antwortet nicht (3 Versuche). Runbook: app-down.md"
             exit 1
           fi
           echo "$body"
